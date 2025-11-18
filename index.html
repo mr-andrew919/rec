@@ -1,87 +1,143 @@
 <!DOCTYPE html>
-<html lang="uk">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Voice Recognition Demo2</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-      }
-      #text {
-        margin-top: 20px;
-        padding: 10px;
-        border: 1px solid #ccc;
-        min-height: 80px;
-        background: #f8f8f8;
-        white-space: pre-wrap;
-      }
-    </style>
-  </head>
-  <body>
-    <h2>Voice Recognition 2</h2>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Voice Recognition Debug</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  #text, #logs {
+    white-space: pre-wrap;
+    padding: 10px;
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    background: #f8f8f8;
+    min-height: 80px;
+  }
+  h2 { margin-bottom: 5px; }
+</style>
+</head>
+<body>
 
-    <button id="startBtn">Start Recognition</button>
-    <button id="stopBtn">Stop</button>
+<h2>Voice Recognition Test</h2>
 
-    <div id="text">Recognized text will appear here...</div>
+<button id="startBtn">Start Recognition</button>
+<button id="stopBtn">Stop</button>
 
-    <script>
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
+<h3>Recognized Text:</h3>
+<div id="text">...</div>
 
-      if (!SpeechRecognition) {
-        alert(
-          "Your browser does not support Web Speech API. Please use Chrome."
-        );
-      }
+<h3>Logs:</h3>
+<div id="logs">Initializing...</div>
 
-      const recognition = new SpeechRecognition();
+<script>
+  const logs = document.getElementById('logs');
+  const textBlock = document.getElementById('text');
 
-      // ENGLISH
-      recognition.lang = "en-US";
+  function log(msg) {
+    console.log(msg);
+    logs.textContent += "\n" + msg;
+  }
 
-      recognition.continuous = true;
-      
-      recognition.interimResults = true;
+  // === ENVIRONMENT INFO ===
+  log("=== ENVIRONMENT INFO ===");
+  log("Location: " + window.location.href);
+  log("Protocol: " + window.location.protocol);
+  log("Host: " + window.location.host);
+  log("User-Agent: " + navigator.userAgent);
+  log("Platform: " + navigator.platform);
 
-      const textBlock = document.getElementById("text");
-      const startBtn = document.getElementById("startBtn");
-      const stopBtn = document.getElementById("stopBtn");
+  log("Is HTTPS: " + (location.protocol === "https:"));
+  log("Is Mobile: " + /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  log("Is Chrome: " + /Chrome/i.test(navigator.userAgent));
+  log("Is WebView: " + (/(wv|WebView)/i.test(navigator.userAgent)));
 
-      let finalText = "";
+  // Permissions API info
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'microphone' }).then(result => {
+      log("Microphone permission: " + result.state);
+    }).catch(err => log("Permissions API error: " + err));
+  } else {
+    log("Permissions API NOT supported");
+  }
 
-      startBtn.addEventListener("click", () => {
-        finalText = "";
-        recognition.start();
-      });
+  // === SPEECH RECOGNITION SUPPORT ===
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      stopBtn.addEventListener("click", () => {
-        recognition.stop();
-      });
+  log("SpeechRecognition object exists: " + !!SpeechRecognition);
+  log("Using webkitSpeechRecognition: " + !!window.webkitSpeechRecognition);
 
-      recognition.onresult = (event) => {
-        let interim = "";
+  if (!SpeechRecognition) {
+    log("❌ SpeechRecognition is NOT supported in this browser.");
+    alert("SpeechRecognition is not supported on this device.");
+  }
 
-        for (let i = 0; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
+  const recognition = new SpeechRecognition();
 
-          if (event.results[i].isFinal) {
-            finalText += transcript + " ";
-          } else {
-            interim += transcript;
-          }
-        }
+  recognition.lang = "en-US";
+  recognition.interimResults = true;
+  recognition.continuous = true; // You can change to true to test
+  let isRecording = false;
+  let finalText = "";
 
-        textBlock.textContent = finalText + interim;
-      };
+  log("Recognition language: " + recognition.lang);
+  log("interimResults: " + recognition.interimResults);
+  log("continuous: " + recognition.continuous);
 
-      recognition.onerror = (e) => {
-        console.error("Speech recognition error:", e);
-      };
-    </script>
-  </body>
+  // === EVENT LOGGING ===
+  recognition.onstart = () => { log("onstart: recording started"); isRecording = true; };
+  recognition.onend = () => { log("onend: recording ended"); isRecording = false; };
+  recognition.onaudiostart = () => log("onaudiostart: audio capturing started");
+  recognition.onaudioend = () => log("onaudioend: audio capturing ended");
+  recognition.onsoundstart = () => log("onsoundstart: sound detected");
+  recognition.onsoundend = () => log("onsoundend: sound stopped");
+  recognition.onspeechstart = () => log("onspeechstart: speech detected");
+  recognition.onspeechend = () => log("onspeechend: speech ended");
+  recognition.onnomatch = () => log("onnomatch: speech not recognized");
+
+  recognition.onerror = (e) => {
+    log("❌ onerror: " + e.error + " | message: " + (e.message || ""));
+  };
+
+  recognition.onresult = (event) => {
+    log("onresult: result received (len=" + event.results.length + ")");
+
+    let interim = "";
+    for (let i = 0; i < event.results.length; i++) {
+      const res = event.results[i];
+      const text = res[0].transcript;
+
+      log("  Result[" + i + "]: " + text + " | final=" + res.isFinal);
+
+      if (res.isFinal) finalText += text + " ";
+      else interim += text;
+    }
+    textBlock.textContent = finalText + interim;
+  };
+
+  // === BUTTON HANDLERS ===
+  document.getElementById('startBtn').addEventListener('click', () => {
+    try {
+      finalText = "";
+      textBlock.textContent = "...";
+      log("====== START CLICKED ======");
+      recognition.start();
+      log("recognition.start() CALLED");
+    } catch (err) {
+      log("❌ start() exception: " + err.message);
+    }
+  });
+
+  document.getElementById('stopBtn').addEventListener('click', () => {
+    try {
+      log("====== STOP CLICKED ======");
+      recognition.stop();
+      log("recognition.stop() CALLED");
+    } catch (err) {
+      log("❌ stop() exception: " + err.message);
+    }
+  });
+
+</script>
+
+</body>
 </html>
-
-
-
