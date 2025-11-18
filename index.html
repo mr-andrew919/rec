@@ -74,7 +74,7 @@
   const recognition = new SpeechRecognition();
 
   recognition.lang = "en-US";
-  recognition.interimResults = true;
+  recognition.interimResults = false;
   recognition.continuous = true; // You can change to true to test
   let isRecording = false;
   let finalText = "";
@@ -141,3 +141,4 @@
 
 </body>
 </html>
+
